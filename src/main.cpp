@@ -1,6 +1,6 @@
 #include <Arduino.h>
-#define sleep() __asm__ __volatile__ ("sleep" ::: "memory")
-int sleep_count = 0;
+#include "macros.h"
+static volatile int sleep_count = 0;
 
 void setup_adc()
 {
@@ -26,7 +26,7 @@ void setup()
       DDRB |= (1<<PB5);
 
       //Set sleep-mode "Power-down"
-      SMCR |= 0x04;
+      SMCR |= SLEEP_MODE_PWR_DOWN;
 
       MCUSR &= ~(1<<WDRF);
       //Watchdog Set-up to interrupt 8s
@@ -47,7 +47,7 @@ int read_adc()
 
 void blink_led()
 {
-      PORTB ^= (1<<PB5); //XOR on/off led
+      led_toggle();
       delay(300);
 }
 
@@ -62,15 +62,15 @@ void loop()
       while (read_adc() < 780) blink_led();
 
       //Prepare for sleep
-      PORTB &= ~(1<<PB5); //0 to led
-      ADCSRA &= ~(1<<ADEN); //ADC Off
-      SMCR |= (1<<SE); //Sleep enable on
+      led_off();
+      adc_disable(); //ADC Off
+      sleep_enable(); //Sleep enable on
 
       //Go back to sleep until time is to check moisture 10 min intervals.
-      while (sleep_count*8 < 600) sleep();
+      while (sleep_count*8 < SLEEP_TIME) sleep();
 
       //Wake up routine, when timeout
-      SMCR &= ~(1<<SE); //Sleep enable off
+      sleep_disable(); //Sleep enable off
       sleep_count = 0;
       setup_adc(); //Set-up adc, wake up
       delay(100);
